@@ -1,1 +1,0 @@
-# Script for processing Crimea coastline from OpenStreetMap
