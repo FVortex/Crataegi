@@ -8,28 +8,14 @@ library(sdm)
 library(maps)
 library(raster)
 
-#geodata
-#to determine region of interest
-crimea <- map(ylim=c(44.3, 46), xlim=c(32.5,36.6), col='gray90', fill=TRUE)  
+# 1. Geodata
+load("data/Crimea-osmland.Rdata")
 
-#boundaries for which background data will be extracted
-crimea_x_lims <- c(32.5, 36.6) 
-crimea_y_lims <- c(44.4, 46)
-# 1. Define coordinate reference system (crs) not-projected data (in degrees, not metres)
+# Define coordinate reference system (crs) not-projected data (in degrees, not metres)
 WGS84 <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 
-# 2. Create SpatialPolygon object from coordinates for Crimea
-p_crimea <- Polygon(coords = cbind(c(crimea_x_lims[1], crimea_x_lims[1], crimea_x_lims[2],crimea_x_lims[2]), 
-                                   c(crimea_y_lims[1], crimea_y_lims[2], crimea_y_lims[2],crimea_y_lims[1])))
-ps_crimea <- Polygons(srl = list(p_crimea), ID = 1)
-sps_crimea <- SpatialPolygons(list(ps_crimea), 
-                              proj4string = crs(WGS84))
-
-#biodata
-
-occ_crataegi_crimea <- occ_search(scientificName = 'Crataegus', 
-                                  decimalLongitude =  paste0(min(crimea_x_lims), ',', max(crimea_x_lims)), 
-                                  decimalLatitude = paste0(min(crimea_y_lims), ',', max(crimea_y_lims)))
+# 2. biodata
+occ_crataegi_crimea <- occ_search(scientificName = 'Crataegus', geometry = st_as_text(crimea_land))
 clean <- (occ_crataegi_crimea$data)
 dim(clean)
 #346 occurences in total
