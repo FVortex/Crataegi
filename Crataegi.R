@@ -3,21 +3,36 @@
 #libraries and clearence
 rm(list = ls())
 library(dplyr)
+library(sf)
 library(rgbif) 
 library(sdm)
 library(maps)
 library(raster)
+library(mapview)
+library(ggplot2)
 
 # 1. Geodata
 load("data/Crimea-osmland.Rdata")
+load("data/crimea_adm_border.Rdata")
 
 # Define coordinate reference system (crs) not-projected data (in degrees, not metres)
 WGS84 <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 
 # 2. biodata
-occ_crataegi_crimea <- occ_search(scientificName = 'Crataegus', geometry = st_as_text(crimea_land))
+occ_crataegi_crimea <- occ_search(scientificName = 'Crataegus', hasCoordinate = T,
+                                  skip_validate = T,
+                                  geometry = st_bbox(crimea_admin_level_4))
+
 clean <- (occ_crataegi_crimea$data)
-dim(clean)
+
+# Create sf obj
+sp::SpatialPointsDataFrame(coords = clean %>% select(decimalLongitude, decimalLatitude), 
+                           proj4string = CRS(WGS84), data = clean %>% 
+                             select(-c(decimalLatitude, decimalLongitude))) %>% 
+  st_as_sf() %>% .[crimea_land,] -> localities
+
+# Let's take a look
+mapview(localities)
 #346 occurences in total
 
 #where did they came from?
@@ -25,9 +40,9 @@ clean$basisOfRecord %>% table %>% pie(col = c('orange', 'yellow', 'cyan'), main 
 
 #phylum Crateagus with no species is denoted 'NA'
 #lets change to ''
-clean$species[is.na(clean$species)] <- 'Crataegus sp.'
-clean$species <- gsub(pattern = 'Crataegus', replacement = 'C.', clean$species)
-clean$species ->  sps
+localities$species[is.na(localities$species)] <- 'Crataegus sp.'
+localities$species <- gsub(pattern = 'Crataegus', replacement = 'C.', localities$species)
+localities$species ->  sps
 
 #plots for number of records per species
 par(mar = c(10,2,2,2))
@@ -39,20 +54,27 @@ abline(h = 50, lty = 2)
 sps %>% table %>% sort(decreasing = T) -> tmp
 chosen <- names(tmp[1:4])
 #plot for Crataegi per species
-Co <- clean[clean$species == chosen[1],]
-Cme <- clean[clean$species == chosen[2],]
-Cr <- clean[clean$species == chosen[3],]
-Cmo <- clean[clean$species == chosen[4],]
-#plotting
-# #
-dev.off()
-par(mfrow = c(2,2),
-    mar = rep(0.7, 4))
-loop <- c('Co', 'Cme', 'Cr', 'Cmo')
-for (i in seq_along(loop)){
-  crimea <- map(ylim=c(44.3, 46), xlim=c(32.5,36.6), col='gray90', fill=TRUE)  
-  points(y = get(loop[i])$decimalLatitude, x = get(loop[i])$decimalLongitude, col = rainbow(4)[i], pch = 15, cex = 1)
-}
+Co <- localities[localities$species == chosen[1],]
+Cme <- localities[localities$species == chosen[2],]
+Cr <- localities[localities$species == chosen[3],]
+Cmo <- localities[localities$species == chosen[4],]
+
+localities_chosen <- localities %>% filter(species %in% chosen)
+
+# plotting
+localities_plot <- ggplot()+
+  geom_sf(data = crimea_land, fill = "white", col = "grey20")+
+  geom_point(data = localities_chosen, aes(x = st_coordinates(localities_chosen)[,1], 
+                                           y = st_coordinates(localities_chosen)[,2],
+                                           col = species, fill = species),
+             pch = 21, size = 1.2, alpha = 0.5)+
+  coord_sf()+
+  theme(axis.title = element_blank())
+
+# Export plot to jpeg
+ggsave(localities_plot, filename = "localities.jpeg",
+       path = "plots/",
+       dpi = 300, width = 18, height = 10, units = "cm")
 
 # #using no loop
 # crimea <- map(ylim=c(44.3, 46), xlim=c(32.5,36.6), col='gray90', fill=TRUE)  
@@ -89,6 +111,7 @@ names(worldclim_world_raster_stack) <- bioclim_vars
 # stack is a function in the raster package, to read/create a multi-layers raster dataset
 preds <- stack(worldclim_world) # making a raster object
 # #class(preds); dim(preds)
+
 # 3. Check crs of the raster 
 # crs(worldclim_world) # if it is the same as for SpatialPolygon  - you can crop raster, if not, reproject polygon
 crs(preds) #fixed by applying stack function first
