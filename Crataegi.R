@@ -1,9 +1,12 @@
 ####Crimean Crataegus species
 #Orlov and Sheludkov
 #libraries and clearence
+
 rm(list = ls())
 library(dplyr)
+library(sp)
 library(sf)
+library(stars)
 library(rgbif) 
 library(sdm)
 library(maps)
@@ -11,32 +14,58 @@ library(raster)
 library(mapview)
 library(ggplot2)
 
-# 1. Geodata
+# ================
+# 1. Preprocessing
+# ================
+
+# ==========================
+# 1.1. Load OSM land polygon 
 load("data/Crimea-osmland.Rdata")
-load("data/crimea_adm_border.Rdata")
 
-# Define coordinate reference system (crs) not-projected data (in degrees, not metres)
-WGS84 <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+# # Define coordinate reference system (crs) not-projected data (in degrees, not metres)
+# WGS84 <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 
-# 2. biodata
+# ==============
+# 1.2. Worldclim
+load("data/worldclim_crimea.Rdata")
+
+# worldclim_crimea is a star obj. Let's convert it into RasterStack
+# Create empty stack and add layers one by one
+worldclim_crimea_stack <- stack()
+for(i in 1:length(worldclim_crimea)){
+  worldclim_crimea_stack <- stack(worldclim_crimea_stack, as(worldclim_crimea[i], 'Raster'))
+}
+
+# Set varible names
+raw <- 'BIO1 = Annual Mean Temperature, BIO2 = Mean Diurnal Range (Mean of monthly (max temp - min temp)), BIO3 = Isothermality (BIO2/BIO7) (* 100), BIO4 = Temperature Seasonality (standard deviation *100), BIO5 = Max Temperature of Warmest Month, BIO6 = Min Temperature of Coldest Month, BIO7 = Temperature Annual Range (BIO5-BIO6), BIO8 = Mean Temperature of Wettest Quarter, BIO9 = Mean Temperature of Driest Quarter, BIO10 = Mean Temperature of Warmest Quarter, BIO11 = Mean Temperature of Coldest Quarter, BIO12 = Annual Precipitation, BIO13 = Precipitation of Wettest Month, BIO14 = Precipitation of Driest Month, BIO15 = Precipitation Seasonality (Coefficient of Variation), BIO16 = Precipitation of Wettest Quarter, BIO17 = Precipitation of Driest Quarter, BIO18 = Precipitation of Warmest Quarter, BIO19 = Precipitation of Coldest Quarter'
+#raw1 <- gsub('BIO.*? = ', '', raw)
+bioclim_vars <- unlist(strsplit(raw, split = ', '))
+bioclim_vars <- substr(bioclim_vars, start = 8, 100)
+names(worldclim_crimea_stack) <- bioclim_vars
+
+# ==============
+# 1.3. GBIF data
+
+# download data within the bounding box of land polygon
 occ_crataegi_crimea <- occ_search(scientificName = 'Crataegus', hasCoordinate = T,
                                   skip_validate = T,
-                                  geometry = st_bbox(crimea_admin_level_4))
+                                  geometry = st_bbox(crimea_land))
 
+# Extract data frame
 clean <- (occ_crataegi_crimea$data)
 
-# Create sf obj
-sp::SpatialPointsDataFrame(coords = clean %>% select(decimalLongitude, decimalLatitude), 
-                           proj4string = CRS(WGS84), data = clean %>% 
-                             select(-c(decimalLatitude, decimalLongitude))) %>% 
-  st_as_sf() %>% .[crimea_land,] -> localities
+# Create sp obj, convert to sf, extract the localities within the land polygon
+localities <- sp::SpatialPointsDataFrame(coords = clean %>% dplyr::select(decimalLongitude, decimalLatitude), 
+                                         proj4string = CRS(WGS84), 
+                                         data = clean %>% dplyr::select(-c(decimalLatitude, decimalLongitude))) %>% 
+  st_as_sf() %>% .[crimea_land,]
 
 # Let's take a look
 mapview(localities)
-#346 occurences in total
+# 348 localities in total
 
 #where did they came from?
-clean$basisOfRecord %>% table %>% pie(col = c('orange', 'yellow', 'cyan'), main = 'Localities data sources')
+localities$basisOfRecord %>% table %>% pie(col = c('orange', 'yellow', 'cyan'), main = 'Localities data sources')
 
 #phylum Crateagus with no species is denoted 'NA'
 #lets change to ''
@@ -50,7 +79,7 @@ sps %>% table %>% sort(decreasing = T) %>%
   barplot(main = 'Crimean Crataegus', las = 2, cex.names = 1.25, col = c(rainbow(4), rep('grey', 7)))
 abline(h = 50, lty = 2)
 
-#lets take top-4 (over or =50)
+#lets take top-4 (>=50)
 sps %>% table %>% sort(decreasing = T) -> tmp
 chosen <- names(tmp[1:4])
 #plot for Crataegi per species
@@ -71,128 +100,54 @@ localities_plot <- ggplot()+
   coord_sf()+
   theme(axis.title = element_blank())
 
-# Export plot to jpeg
+# Export to jpeg
 ggsave(localities_plot, filename = "localities.jpeg",
        path = "plots/",
        dpi = 300, width = 18, height = 10, units = "cm")
 
-# #using no loop
-# crimea <- map(ylim=c(44.3, 46), xlim=c(32.5,36.6), col='gray90', fill=TRUE)  
-# points(y = Co$decimalLatitude, x = Co$decimalLongitude, col = rainbow(4)[1], pch = 15, cex = 1)
-# 
-# crimea <- map(ylim=c(44.3, 46), xlim=c(32.5,36.6), col='gray90', fill=TRUE)  
-# points(y = Cme$decimalLatitude, x = Cme$decimalLongitude, col = rainbow(4)[2], pch = 15, cex = 1)
-# 
-# crimea <- map(ylim=c(44.3, 46), xlim=c(32.5,36.6), col='gray90', fill=TRUE)  
-# points(y = Cr$decimalLatitude, x = Cr$decimalLongitude, col = rainbow(4)[3], pch = 15, cex = 1)
-# 
-# 
-# crimea <- map(ylim=c(44.3, 46), xlim=c(32.5,36.6), col='gray90', fill=TRUE)  
-# points(y = Cmo$decimalLatitude, x =Cmo$decimalLongitude, col = rainbow(4)[4], pch = 15, cex = 1)
-# 
-# 
-#loading Bioclim database data 
-#!these are to be loaded prior to the script usage
-setwd('/home/mikhail/Documents/Crimea_vs_Vanouver/wc2.0_2.5m_bio(1)/')
-#for some reason the code below only work is i navigate to the directory where tif files are stored
-worldclim_world <- dir('/home/mikhail/Documents/Crimea_vs_Vanouver/wc2.0_2.5m_bio(1)/', pattern = '*tif')
-worldclim_world_raster_stack <- raster::stack(worldclim_world)
-# #dim(worldclim_world_raster_stack); class(worldclim_world_raster_stack)
-# setting bioclimatic variable names
-raw <- 'BIO1 = Annual Mean Temperature, BIO2 = Mean Diurnal Range (Mean of monthly (max temp - min temp)), BIO3 = Isothermality (BIO2/BIO7) (* 100), BIO4 = Temperature Seasonality (standard deviation *100), BIO5 = Max Temperature of Warmest Month, BIO6 = Min Temperature of Coldest Month, BIO7 = Temperature Annual Range (BIO5-BIO6), BIO8 = Mean Temperature of Wettest Quarter, BIO9 = Mean Temperature of Driest Quarter, BIO10 = Mean Temperature of Warmest Quarter, BIO11 = Mean Temperature of Coldest Quarter, BIO12 = Annual Precipitation, BIO13 = Precipitation of Wettest Month, BIO14 = Precipitation of Driest Month, BIO15 = Precipitation Seasonality (Coefficient of Variation), BIO16 = Precipitation of Wettest Quarter, BIO17 = Precipitation of Driest Quarter, BIO18 = Precipitation of Warmest Quarter, BIO19 = Precipitation of Coldest Quarter'
-#raw1 <- gsub('BIO.*? = ', '', raw)
-bioclim_vars <- unlist(strsplit(raw, split = ', '))
-bioclim_vars <- substr(bioclim_vars, start = 8, 100)
-names(worldclim_world_raster_stack) <- bioclim_vars
+# Convert sf to spdf
 
-#how can I get a set of raster/rasterStack obejct for my region of interest exclusively subsetting by `lat_long_in_polygons` coordinates?
-
-# 2.5
-# stack is a function in the raster package, to read/create a multi-layers raster dataset
-preds <- stack(worldclim_world) # making a raster object
-# #class(preds); dim(preds)
-
-# 3. Check crs of the raster 
-# crs(worldclim_world) # if it is the same as for SpatialPolygon  - you can crop raster, if not, reproject polygon
-crs(preds) #fixed by applying stack function first
-# sps <- spTransform(sp, crs(worldclim_world))
-preds # see the specification of the raster layers (e.g., cell size, extent, etc.)
-plot(preds)
-
-# 4. Crop and mask raster data 
-# Here I'm not sure - never worked with stacks - may be you need to loop the function for every layer of stack
-raster::crop(preds, sps_crimea) %>%  # first, crop by just extent of the polygon
-  raster::mask(sps_crimea) ->                  # crop by the actual borders pf polygon
-  world_clim_cropped_crimea
-
-
-#####Crataegus orientalis first
-Co_spdf_crimea <- SpatialPointsDataFrame(coords = cbind(Co$decimalLongitude, Co$decimalLatitude),
-                                         data = as_data_frame(Co), proj4string = CRS(WGS84))
-plot(world_clim_cropped_crimea[[1]], main = bioclim_vars[1])
+# Crataegus orientalis
+Co_spdf_crimea <- Co %>% as('Spatial')
+plot(worldclim_crimea_stack[[1]], main = bioclim_vars[1])
 points(Co_spdf_crimea, pch = 4, lwd = 3)
 # #class(Co_spdf_crimea)
 
-#meyeri is second
-Cme_spdf_crimea <- SpatialPointsDataFrame(coords = cbind(Cme$decimalLongitude, Cme$decimalLatitude),
-                                          data = as_data_frame(Cme), proj4string = CRS(WGS84))
-plot(world_clim_cropped_crimea[[1]], main = bioclim_vars[1])
+# meyeri
+Cme_spdf_crimea <- Cme %>% as('Spatial')
+plot(worldclim_crimea_stack[[1]], main = bioclim_vars[1])
 points(Cme_spdf_crimea, pch = 4, lwd = 3)
 # #class(Cme_spdf_crimea)
 
-#rhipidophylla is third
-Cr_spdf_crimea <- SpatialPointsDataFrame(coords = cbind(Cr$decimalLongitude, Cr$decimalLatitude),
-                                          data = as_data_frame(Cr), proj4string = CRS(WGS84))
-plot(world_clim_cropped_crimea[[1]], main = bioclim_vars[1])
+# rhipidophylla
+Cr_spdf_crimea <- Cr %>% as('Spatial')
+plot(worldclim_crimea_stack[[1]], main = bioclim_vars[1])
 points(Cr_spdf_crimea, pch = 4, lwd = 3)
 # #class(Cr_spdf_crimea)
 
-#monogyna is four
-Cmo_spdf_crimea <- SpatialPointsDataFrame(coords = cbind(Cmo$decimalLongitude, Cmo$decimalLatitude),
-                                          data = as_data_frame(Cmo), proj4string = CRS(WGS84))
-plot(world_clim_cropped_crimea[[1]], main = bioclim_vars[1])
+# monogyna
+Cmo_spdf_crimea <- Cmo %>% as('Spatial')
+plot(worldclim_crimea_stack[[1]], main = bioclim_vars[1])
 points(Cmo_spdf_crimea, pch = 4, lwd = 3)
 # #class(Cmo_spdf_crimea)
 
-#backgounr points vs presence data generation
-## presence / no-presence data
-#100 background points - approx. twice as much as any Crataefus
-bg_spdf_crimea <- sampleRandom(world_clim_cropped_crimea, size = 100, sp = T)
+# ============
+# 2. Modelling
+# ============
 
-##### Crateagus orientalis comes first ## 
-#replacing variables with zeros indicating no-presence
-outcomes_crimea_Co <- as.data.frame(rep(1, nrow(Co_spdf_crimea@data)))
-outcomes_crimea_bg <- as.data.frame(c(rep(0, nrow(bg_spdf_crimea))))
-outcomes_both_Co <- as.data.frame(unlist(append(x = outcomes_crimea_bg, outcomes_crimea_Co)), row.names = as.character(1:(nrow(Co_spdf_crimea@data) + nrow(bg_spdf_crimea_50_points))))
+# Generate 100 random points for no-presence data
+set.seed(90)
+bg_spdf_crimea <- sampleRandom(worldclim_crimea_stack, size = 100, sp = T)
 
-#are these scaterred? yes
-crimea <- map(ylim=c(44.3, 46), xlim=c(32.5,36.6), col='gray90', fill=TRUE)  
-plot(bg_spdf_crimea_50_points, add = T)
+##### Crateagus orientalis comes first
 
-#combining background and localities data frames
-dim(Co_spdf_crimea)
-dim(bg_spdf_crimea)
-raster::intersect(x = Co_spdf_crimea, y = bg_spdf_crimea_50_points)
-#or creating from scratch
-
-#crimea_Dc_and_bg_presence_no <- SpatialPointsDataFrame(coords = rbind(bg_spdf_crimea_50_points@coords, Dc_spdf_crimea@coords), 
-#                      data = cbind(outcomes_both, rbind(Dc_spdf_crimea, bg_spdf_crimea_50_points)),
-#                     proj4string = world_clim_cropped_crimea@crs
-#                    )
-# class(crimea_Co_and_bg_presence_no); dim(crimea_Co_and_bg_presence_no)
-# crimea <- map(ylim=c(44.3, 46), xlim=c(32.5,36.6), col='gray90', fill=TRUE)  
-# plot(crimea_Dc_and_bg_presence_no, add = T)
-# #the object is RasterBrick class. Munging it to SpatialPointsDataFrame
-
+# Combine presence/no-presence data
 crimea_Co_and_bg <- SpatialPointsDataFrame(coords = rbind(bg_spdf_crimea@coords, Co_spdf_crimea@coords), 
-                                           data = as.data.frame(c(rep(0, nrow(bg_spdf_crimea)), rep(1, nrow(Co_spdf_crimea)))), 
-                                           proj4string = world_clim_cropped_crimea@crs
-)
+                                           data = data_frame(Occurence = c(rep(0, nrow(bg_spdf_crimea)), rep(1, nrow(Co_spdf_crimea)))), 
+                                           proj4string = worldclim_crimea_stack@crs)
 
-names(crimea_Co_and_bg) <- 'Occurence'
-## presence / no-presence data
-#PART ML 
-d_Co <- sdmData(formula = Occurence ~ ., train=crimea_Co_and_bg, predictors=preds)
+# PART ML 
+d_Co <- sdmData(formula = Occurence ~ ., train=crimea_Co_and_bg, predictors=worldclim_crimea_stack)
 set.seed(90)
 m1_Co <-sdm(Occurence ~ ., data = d_Co, methods = 'rf', replication='sub',  test.percent = 30, n = 10)
 
@@ -383,10 +338,10 @@ vi_Cmo@variables <- bioclim_vars
 
 #prediction; distibution
 
-p1_Co <-predict(m1_Co[[which_best_Co]], newdata = world_clim_cropped_crimea, overwrite = T, filename = 'p3.img')
-p1_Cme <-predict(m1_Cme[[which_best_Cme]], newdata = world_clim_cropped_crimea, overwrite = T, filename = 'p4.img')
-p1_Cr <-predict(m1_Cr[[which_best_Cr]], newdata = world_clim_cropped_crimea, overwrite = T, filename = 'p5.img')
-p1_Cmo <-predict(m1_Cmo[[which_best_Cmo]], newdata = world_clim_cropped_crimea, overwrite = T, filename = 'p6.img')
+p1_Co <-predict(m1_Co[[which_best_Co]], newdata = worldclim_crimea_stack, overwrite = T, filename = 'p3.img')
+p1_Cme <-predict(m1_Cme[[which_best_Cme]], newdata = worldclim_crimea_stack, overwrite = T, filename = 'p4.img')
+p1_Cr <-predict(m1_Cr[[which_best_Cr]], newdata = worldclim_crimea_stack, overwrite = T, filename = 'p5.img')
+p1_Cmo <-predict(m1_Cmo[[which_best_Cmo]], newdata = worldclim_crimea_stack, overwrite = T, filename = 'p6.img')
 
 
 par(mar = rep(0.9, 4),
