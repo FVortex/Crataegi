@@ -57,9 +57,9 @@ ggplot()+
   geom_sf(data = crimea_land)+
   geom_stars(data = worldclim_crimea[3], alpha = 0.8) + 
   # facet_wrap("time") +
-  scale_fill_viridis(na.value = "white") +
+  # scale_fill_viridis(na.value = "white") +
   # coord_cartesian()+
-  theme_map()+
+  # theme_map()+
   theme(legend.position = "bottom")
 
 
