@@ -3,4 +3,6 @@
 .RData
 .Ruserdata
 *.docx
-data/wc2/
+data/wc2 standard/
+data/wc2 solar radiation/
+data/wc2 wind/
