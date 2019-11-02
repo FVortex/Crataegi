@@ -1,4 +1,4 @@
-####Crimean Crataegus species
+####Crimean Crataegus species. Worldclim2 data preprocessing
 #Orlov and Sheludkov
 #libraries and clearence
 
@@ -28,20 +28,8 @@ load("data/Crimea-osmland.Rdata")
 # ==============
 # 1.2. Worldclim
 load("data/worldclim_crimea.Rdata")
-
-# worldclim_crimea is a star obj. Let's convert it into RasterStack
-# Create empty stack and add layers one by one
-worldclim_crimea_stack <- stack()
-for(i in 1:length(worldclim_crimea)){
-  worldclim_crimea_stack <- stack(worldclim_crimea_stack, as(worldclim_crimea[i], 'Raster'))
-}
-
-# Set varible names
-raw <- 'BIO1 = Annual Mean Temperature, BIO2 = Mean Diurnal Range (Mean of monthly (max temp - min temp)), BIO3 = Isothermality (BIO2/BIO7) (* 100), BIO4 = Temperature Seasonality (standard deviation *100), BIO5 = Max Temperature of Warmest Month, BIO6 = Min Temperature of Coldest Month, BIO7 = Temperature Annual Range (BIO5-BIO6), BIO8 = Mean Temperature of Wettest Quarter, BIO9 = Mean Temperature of Driest Quarter, BIO10 = Mean Temperature of Warmest Quarter, BIO11 = Mean Temperature of Coldest Quarter, BIO12 = Annual Precipitation, BIO13 = Precipitation of Wettest Month, BIO14 = Precipitation of Driest Month, BIO15 = Precipitation Seasonality (Coefficient of Variation), BIO16 = Precipitation of Wettest Quarter, BIO17 = Precipitation of Driest Quarter, BIO18 = Precipitation of Warmest Quarter, BIO19 = Precipitation of Coldest Quarter'
-#raw1 <- gsub('BIO.*? = ', '', raw)
-bioclim_vars <- unlist(strsplit(raw, split = ', '))
-bioclim_vars <- substr(bioclim_vars, start = 8, 100)
-names(worldclim_crimea_stack) <- bioclim_vars
+load("data/worldclim_solar_vars.Rdata")
+load("data/worldclim_wind_vars.Rdata")
 
 # ==============
 # 1.3. GBIF data
