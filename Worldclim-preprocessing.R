@@ -30,6 +30,9 @@ rm(worldclim) # delete original object
 # Convert to stars object
 worldclim_crimea %>% st_as_stars() -> worldclim_crimea
 
+# # Save as file
+# save(worldclim_crimea, file = "data/worldclim_crimea_star.Rdata")
+
 # Convert into RasterStack
 # Create empty stack and add layers one by one
 worldclim_crimea_stack <- stack()
@@ -81,37 +84,31 @@ worldclim_wind[crimea_land] -> worldclim_crimea_wind
 rm(worldclim_wind) # delete original object
 
 # Convert to stars object
-worldclim_crimea_wind %>% st_as_stars() -> worldclim_crimea_wind
+worldclim_crimea_wind %>% st_as_stars() -> worldclim_wind_stars
 
 # Convert to RasterStack
 worldclim_wind_stack <- stack()
-for(i in 1:length(worldclim_crimea_wind)){
-  worldclim_wind_stack <- stack(worldclim_wind_stack, as(worldclim_crimea_wind[i], 'Raster'))
+for(i in 1:length(worldclim_wind_stars)){
+  worldclim_wind_stack <- stack(worldclim_wind_stack, as(worldclim_wind_stars[i], 'Raster'))
 }
 
 # 2.2. Calculate predictors
 # List of variables to calculate
-# annual mean (1)
 # annual min month (2)
 # annual max month (3)
 
 # Which are the windiest and less windiest monthes?
-for(i in 1:12){
-  print(mean(worldclim_wind_stack[[i]] %>% getValues(), na.rm = T))
-}
+getValues(worldclim_wind_stack) %>% 
+  boxplot()
 # the windienst is February
-# the less windiest is August
-worldclim_wind_vars <- stack(mean(worldclim_wind_stack), 
-                            worldclim_wind_stack[[8]], 
-                            worldclim_wind_stack[[2]])
-names(worldclim_wind_vars) <- c("mean", "min month", "max month")
+worldclim_wind_raster <- worldclim_wind_stack[[2]]
+names(worldclim_wind_raster) <- c("max month")
 
 # Let's take a look
-st_as_stars(worldclim_wind_vars) %>% 
-  plot(nbreaks = 30, col = viridis(29))
+worldclim_wind_raster %>% plot(col = viridis(29))
 
 # Save as Rdata file
-save(worldclim_wind_vars, file = "data/worldclim_wind_vars.Rdata")
+save(worldclim_wind_raster,worldclim_wind_stars, file = "data/worldclim_wind_vars.Rdata")
 
 # ========================
 # 3. Worldclim2 insolation
@@ -161,3 +158,15 @@ plot(worldclim_solar_vars, col = viridis(29))
 
 # Save as Rdata file
 save(worldclim_solar_vars, file = "data/worldclim_solar_vars.Rdata")
+
+# # ======================================================
+# # 4. Assessing worldclim data with sdmpredictors package
+# # ======================================================
+# 
+# library(sdmpredictors)
+# 
+# # list the layercoded for worldclim
+# worldclim <- list_layers("WorldClim")
+# # filter standart bioclim vars
+# worldclim %>% 
+#   filter(stringr::str_detect(layer_code, "WC_bio")) -> worldclim

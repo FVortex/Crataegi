@@ -25,11 +25,12 @@ load("data/Crimea-osmland.Rdata")
 # # Define coordinate reference system (crs) not-projected data (in degrees, not metres)
 # WGS84 <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 
-# ==============
-# 1.2. Worldclim
+# ==========================
+# 1.2. Worldclim and terrain
 load("data/worldclim_crimea.Rdata")
 load("data/worldclim_solar_vars.Rdata")
 load("data/worldclim_wind_vars.Rdata")
+load("data/terrain_vars.Rdata")
 
 # ==============
 # 1.3. GBIF data
