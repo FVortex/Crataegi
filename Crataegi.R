@@ -13,6 +13,9 @@ library(maps)
 library(raster)
 library(mapview)
 library(ggplot2)
+library(corrplot)
+library(FactoMineR)
+library(factoextra)
 
 # ================
 # 1. Preprocessing
@@ -31,6 +34,37 @@ load("data/worldclim_crimea.Rdata")
 load("data/worldclim_solar_vars.Rdata")
 load("data/worldclim_wind_vars.Rdata")
 load("data/terrain_vars.Rdata")
+
+# Exploratory analysis
+# The idea is to remove predictors, which are highly correlated
+
+# Inds
+ind <- c(1, 3, 4, 5, 7, 8, 10, 12:17, 19, 24, 26, 27, 29)
+
+# Extract values and remove NAs
+tmp <- getValues(stack(worldclim_crimea_stack, worldclim_wind_raster, worldclim_solar_vars,
+                elevation_30s, elevation_2p5min, slope_30s, slope_2p5min, slope_5min, aspect_30s, aspect_2p5min, aspect_5min)[[-ind]])
+tmp[complete.cases(tmp),] -> tmp
+colnames(tmp) <- c(paste0("BIO", 1:19), "wind", "solar_sum", "solar_max",
+                   "elev_30s", "elev_2p5min", 
+                   "slope_30s", "slope_2p5min", "slope_5min", 
+                   "asp_30s", "asp_2p5min", "asp_5min")[-ind]
+
+# Correlation test
+cor(tmp, method = "pearson") -> cor_temp
+corrplot(cor_temp)
+
+# pca
+princomp(tmp %>% scale()) %>% 
+  fviz_pca_biplot(repel = TRUE,
+                  geom.ind = "point",
+                  col.ind = "black",
+                  pointshape = 21, pointsize = 0.3,
+                  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                  addEllipses = TRUE,
+                  col.var = "contrib", # Variables color
+                  label = 'var', labelsize = 8)
+
 
 # ==============
 # 1.3. GBIF data
